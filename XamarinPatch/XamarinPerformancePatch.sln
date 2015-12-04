@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XamarinPatch", "XamarinPatch\XamarinPatch.csproj", "{82AB164B-272F-4010-A4F8-5A75FDD6258D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XamarinPerformancePatch", "XamarinPerformancePatch\XamarinPerformancePatch.csproj", "{82AB164B-272F-4010-A4F8-5A75FDD6258D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
