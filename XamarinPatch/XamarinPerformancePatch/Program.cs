@@ -1,8 +1,8 @@
 ﻿using System;
-using Mono.Cecil;
-using System.Linq;
-using Mono.Cecil.Cil;
 using System.IO;
+using System.Linq;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace XamarinPatch
 {
@@ -10,15 +10,70 @@ namespace XamarinPatch
 	{
 		public static void Main (string[] args)
 		{
-			const string directory = @"../../";// @"../../../../../";
-			string[] files = Directory.GetFiles (directory, "Xamarin.Forms.Core.dll", SearchOption.AllDirectories);
+			//var file2 = "../../Xamarin.Forms.Platform.Android.dll";
+			//patchEnsureChildOrder (path: file2);
+
+			patchEnsureChildOrder ();
+			patchTryCatch ();
+		}
+
+		static void patchEnsureChildOrder ()
+		{
+			// patch to suppress EnsureChildOrder
+			const string directory = @"../../../../../../Subversion";
+			//const string directory = @"../../";
+			string[] files = Directory.GetFiles (directory, "Xamarin.Forms.Platform.Android.dll", SearchOption.AllDirectories);
 			foreach (string file in files) {
-				patchXamarinFormsCoreDll (path: file, typeName: "Xamarin.Forms.AnimationExtensions", methodName: "HandleTweenerUpdated");
-				patchXamarinFormsCoreDll (path: file, typeName: "Xamarin.Forms.AnimationExtensions", methodName: "HandleTweenerFinished");
+				Console.WriteLine (file);
+				patchEnsureChildOrder (path: file);
 			}
 		}
 
-		static void patchXamarinFormsCoreDll (string path, string typeName, string methodName)
+		static void patchTryCatch ()
+		{
+			// patch with try catch
+			const string directory = @"../../";// @"../../../../../";
+			string[] files = Directory.GetFiles (directory, "Xamarin.Forms.Core.dll", SearchOption.AllDirectories);
+			foreach (string file in files) {
+				patchTryCatch (path: file, typeName: "Xamarin.Forms.AnimationExtensions", methodName: "HandleTweenerUpdated");
+				patchTryCatch (path: file, typeName: "Xamarin.Forms.AnimationExtensions", methodName: "HandleTweenerFinished");
+			}
+		}
+
+		static void patchEnsureChildOrder (string path)
+		{
+			var assembly = AssemblyDefinition.ReadAssembly (path);
+			ModuleDefinition module = assembly.MainModule;
+			TypeDefinition mainClass = module.GetType ("Xamarin.Forms.Platform.Android.VisualElementPackager");
+			MethodDefinition method = mainClass.Methods.Single (m => m.Name == "EnsureChildOrder");
+
+			FieldDefinition publicField = mainClass.Fields.FirstOrDefault (f => f.Name == "SuppressBringChildToFront");
+			if (publicField == null) {
+				publicField = new FieldDefinition ("SuppressBringChildToFront", FieldAttributes.Public | FieldAttributes.Static, mainClass.Module.Import (typeof(bool)));
+				mainClass.Fields.Add (publicField);
+			}
+
+			var il = method.Body.GetILProcessor ();
+			var instructions = method.Body.Instructions;
+			Console.WriteLine ("first instruction: " + instructions.First ());
+			var originalFirstInstruction = instructions.First ();
+			if (instructions.First ().OpCode != OpCodes.Ldsfld) {
+				var loadStaticField = il.Create (OpCodes.Ldsfld, publicField);
+				var ifFalse = il.Create (OpCodes.Brfalse_S, originalFirstInstruction);
+				var ret = il.Create (OpCodes.Ret);
+
+				il.InsertBefore (originalFirstInstruction, ret);
+				il.InsertBefore (ret, ifFalse);
+				il.InsertBefore (ifFalse, loadStaticField);
+
+				string pathPatched = path + ".patched.dll";
+				assembly.Write (pathPatched);
+				File.Copy (pathPatched, path, true);
+				File.Delete (pathPatched);
+			}
+		}
+
+		static void patchTryCatch (string path, string typeName, string methodName)
 		{
 			var assembly = AssemblyDefinition.ReadAssembly (path);
 			ModuleDefinition module = assembly.MainModule;
