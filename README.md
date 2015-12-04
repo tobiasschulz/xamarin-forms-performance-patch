@@ -1,0 +1,1 @@
+# xamarin-forms-performance-patch
